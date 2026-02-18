@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String?       @unique
+  name         String
+  phone        String        @unique
+  passwordHash String?
+  role         Role          @default(CLIENT)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+enum Role {
+  CLIENT
+  ADMIN
+  STAFF
+}
+
+model Service {
+  id           String              @id @default(cuid())
+  name         String
+  slug         String              @unique
+  description  String
+  benefits     String[]
+  category     ServiceCategory
+  durationMin  Int
+  price        Decimal             @db.Decimal(10, 2)
+  imageUrl     String?
+  isActive     Boolean             @default(true)
+  sortOrder    Int                 @default(0)
+  appointments Appointment[]
+  recommendedAddons ServiceAddonRecommendation[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+enum ServiceCategory {
+  CABELLO
+  ROSTRO
+  UNAS
+  CUERPO
+  MAQUILLAJE
+  DEPILACION
+  TRATAMIENTOS
+}
+
+model Addon {
+  id                  String                   @id @default(cuid())
+  name                String
+  description         String
+  price               Decimal                  @db.Decimal(10, 2)
+  durationMin         Int                      @default(0)
+  type                String                   @default("resultado")
+  isActive            Boolean                  @default(true)
+  appointmentAddons   AppointmentAddon[]
+  recommendedFor      ServiceAddonRecommendation[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+}
+
+model ServiceAddonRecommendation {
+  id        String  @id @default(cuid())
+  serviceId String
+  addonId   String
+  priority  Int     @default(0)
+  urgencyText String?
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  addon     Addon   @relation(fields: [addonId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, addonId])
+}
+
+model Staff {
+  id           String        @id @default(cuid())
+  name         String
+  role         String
+  imageUrl     String?
+  isActive     Boolean       @default(true)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Appointment {
+  id                    String             @id @default(cuid())
+  userId                String
+  serviceId             String
+  staffId               String?
+  startTime             DateTime
+  endTime               DateTime
+  status                AppointmentStatus  @default(CONFIRMED)
+  totalPrice            Decimal            @db.Decimal(10, 2)
+  notes                 String?
+  googleCalendarEventId String?
+  user                  User               @relation(fields: [userId], references: [id])
+  service               Service            @relation(fields: [serviceId], references: [id])
+  staff                 Staff?             @relation(fields: [staffId], references: [id])
+  addons                AppointmentAddon[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  version               Int                @default(1)
+
+  @@index([staffId, startTime, endTime])
+  @@index([startTime])
+  @@index([status])
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model AppointmentAddon {
+  id            String      @id @default(cuid())
+  appointmentId String
+  addonId       String
+  price         Decimal     @db.Decimal(10, 2)
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  addon         Addon       @relation(fields: [addonId], references: [id])
+
+  @@unique([appointmentId, addonId])
+}
+
+model BusinessSettings {
+  id              String   @id @default("default")
+  businessName    String   @default("ARAN CLINIC")
+  phone           String   @default("449 434 6003")
+  address         String   @default("Av. Eugenio Garza Sada 224, Ejido Los Pocitos, C.P. 20328, Aguascalientes, Ags.")
+  latitude        Decimal  @db.Decimal(11, 8)
+  longitude       Decimal  @db.Decimal(11, 8)
+  timezone        String   @default("America/Mexico_City")
+  slotIntervalMin Int      @default(30)
+  bookingLeadMin  Int      @default(60)
+  maxAdvanceDays  Int      @default(30)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BusinessHours {
+  id        String   @id @default(cuid())
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  isClosed  Boolean  @default(false)
+
+  @@unique([dayOfWeek])
+}
