@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, formatTimeSlot } from "@/lib/utils";
 import {
   APPOINTMENT_STATUS_LABELS,
@@ -29,43 +28,53 @@ export default async function CitasPage({ searchParams }: CitasPageProps) {
   const page = Math.max(1, parseInt(params.page || "1"));
   const perPage = 20;
 
-  const where: Record<string, unknown> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let appointments: any[] = [];
+  let total = 0;
 
-  if (params.status && params.status !== "ALL") {
-    where.status = params.status as AppointmentStatus;
+  try {
+    const { prisma } = await import("@/lib/prisma");
+
+    const where: Record<string, unknown> = {};
+
+    if (params.status && params.status !== "ALL") {
+      where.status = params.status as AppointmentStatus;
+    }
+
+    if (params.date) {
+      const d = new Date(params.date);
+      const next = new Date(d);
+      next.setDate(next.getDate() + 1);
+      where.startTime = { gte: d, lt: next };
+    }
+
+    if (params.q) {
+      where.user = {
+        OR: [
+          { name: { contains: params.q, mode: "insensitive" } },
+          { phone: { contains: params.q } },
+        ],
+      };
+    }
+
+    [appointments, total] = await Promise.all([
+      prisma.appointment.findMany({
+        where,
+        include: {
+          user: { select: { id: true, name: true, phone: true, email: true } },
+          service: true,
+          staff: { select: { id: true, name: true } },
+          addons: { include: { addon: true } },
+        },
+        orderBy: { startTime: "desc" },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+      prisma.appointment.count({ where }),
+    ]);
+  } catch {
+    // Database not available — show empty state
   }
-
-  if (params.date) {
-    const d = new Date(params.date);
-    const next = new Date(d);
-    next.setDate(next.getDate() + 1);
-    where.startTime = { gte: d, lt: next };
-  }
-
-  if (params.q) {
-    where.user = {
-      OR: [
-        { name: { contains: params.q, mode: "insensitive" } },
-        { phone: { contains: params.q } },
-      ],
-    };
-  }
-
-  const [appointments, total] = await Promise.all([
-    prisma.appointment.findMany({
-      where,
-      include: {
-        user: { select: { id: true, name: true, phone: true, email: true } },
-        service: true,
-        staff: { select: { id: true, name: true } },
-        addons: { include: { addon: true } },
-      },
-      orderBy: { startTime: "desc" },
-      skip: (page - 1) * perPage,
-      take: perPage,
-    }),
-    prisma.appointment.count({ where }),
-  ]);
 
   const totalPages = Math.ceil(total / perPage);
 
@@ -153,7 +162,7 @@ export default async function CitasPage({ searchParams }: CitasPageProps) {
                       </p>
                       {appt.addons.length > 0 && (
                         <p className="text-xs text-charcoal-700/50">
-                          +{appt.addons.map((a) => a.addon.name).join(", ")}
+                          +{appt.addons.map((a: { addon: { name: string } }) => a.addon.name).join(", ")}
                         </p>
                       )}
                     </td>

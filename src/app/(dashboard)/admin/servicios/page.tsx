@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { prisma } from "@/lib/prisma";
+import { MOCK_SERVICES } from "@/lib/mock-data";
 import { formatCurrency, formatDuration } from "@/lib/utils";
 import { SERVICE_CATEGORY_LABELS } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
@@ -12,14 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ServiciosPage() {
-  const services = await prisma.service.findMany({
-    orderBy: { sortOrder: "asc" },
-    include: {
-      recommendedAddons: {
-        include: { addon: true },
-      },
-    },
-  });
+  const services = MOCK_SERVICES;
 
   return (
     <div>
@@ -46,7 +39,7 @@ export default async function ServiciosPage() {
                     {service.isActive ? "Activo" : "Inactivo"}
                   </Badge>
                   <Badge variant="default">
-                    {SERVICE_CATEGORY_LABELS[service.category] ??
+                    {SERVICE_CATEGORY_LABELS[service.category as string] ??
                       service.category}
                   </Badge>
                 </div>
@@ -66,7 +59,7 @@ export default async function ServiciosPage() {
                 </div>
                 {service.benefits.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-3">
-                    {service.benefits.map((b, i) => (
+                    {service.benefits.map((b: string, i: number) => (
                       <span
                         key={i}
                         className="text-xs bg-cream-100 text-charcoal-700/70 px-2 py-0.5 rounded-full"
@@ -82,9 +75,9 @@ export default async function ServiciosPage() {
                       Complementos recomendados:
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {service.recommendedAddons.map((ra) => (
+                      {service.recommendedAddons.map((ra: { addon: { id: string; name: string } }) => (
                         <span
-                          key={ra.id}
+                          key={ra.addon.id}
                           className="text-xs bg-gold-50 text-gold-700 px-2 py-0.5 rounded-full"
                         >
                           {ra.addon.name}
@@ -101,7 +94,7 @@ export default async function ServiciosPage() {
                   name: service.name,
                   slug: service.slug,
                   description: service.description,
-                  category: service.category,
+                  category: service.category as never,
                   durationMin: service.durationMin,
                   price: Number(service.price),
                   benefits: service.benefits,

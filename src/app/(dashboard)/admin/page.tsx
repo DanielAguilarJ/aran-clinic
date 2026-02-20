@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import { prisma } from "@/lib/prisma";
 import {
   startOfWeek,
   endOfWeek,
@@ -27,91 +26,103 @@ export default async function AdminDashboardPage() {
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
 
-  const [
-    weeklyAppointments,
-    monthlyRevenueResult,
-    topServiceResult,
-    topAddonResult,
-    upcomingAppointments,
-  ] = await Promise.all([
-    prisma.appointment.count({
-      where: {
-        startTime: { gte: weekStart, lte: weekEnd },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      },
-    }),
-    prisma.appointment.aggregate({
-      _sum: { totalPrice: true },
-      where: {
-        startTime: { gte: monthStart, lte: monthEnd },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      },
-    }),
-    prisma.appointment.groupBy({
-      by: ["serviceId"],
-      _count: { id: true },
-      where: {
-        startTime: { gte: monthStart, lte: monthEnd },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      },
-      orderBy: { _count: { id: "desc" } },
-      take: 1,
-    }),
-    prisma.appointmentAddon.groupBy({
-      by: ["addonId"],
-      _count: { id: true },
-      where: {
-        appointment: {
+  let weeklyAppointments = 0;
+  let monthlyRevenue = 0;
+  let topServiceName = "—";
+  let topServiceCount = 0;
+  let topAddonName = "—";
+  let topAddonCount = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let upcomingAppointments: any[] = [];
+
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const [
+      weeklyCount,
+      monthlyRevenueResult,
+      topServiceResult,
+      topAddonResult,
+      upcoming,
+    ] = await Promise.all([
+      prisma.appointment.count({
+        where: {
+          startTime: { gte: weekStart, lte: weekEnd },
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+      }),
+      prisma.appointment.aggregate({
+        _sum: { totalPrice: true },
+        where: {
           startTime: { gte: monthStart, lte: monthEnd },
           status: { notIn: ["CANCELLED", "NO_SHOW"] },
         },
-      },
-      orderBy: { _count: { id: "desc" } },
-      take: 1,
-    }),
-    prisma.appointment.findMany({
-      where: {
-        startTime: { gte: now },
-        status: { notIn: ["CANCELLED", "NO_SHOW"] },
-      },
-      include: {
-        user: { select: { id: true, name: true, phone: true, email: true } },
-        service: true,
-        staff: { select: { id: true, name: true } },
-        addons: { include: { addon: true } },
-      },
-      orderBy: { startTime: "asc" },
-      take: 10,
-    }),
-  ]);
+      }),
+      prisma.appointment.groupBy({
+        by: ["serviceId"],
+        _count: { id: true },
+        where: {
+          startTime: { gte: monthStart, lte: monthEnd },
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+        orderBy: { _count: { id: "desc" } },
+        take: 1,
+      }),
+      prisma.appointmentAddon.groupBy({
+        by: ["addonId"],
+        _count: { id: true },
+        where: {
+          appointment: {
+            startTime: { gte: monthStart, lte: monthEnd },
+            status: { notIn: ["CANCELLED", "NO_SHOW"] },
+          },
+        },
+        orderBy: { _count: { id: "desc" } },
+        take: 1,
+      }),
+      prisma.appointment.findMany({
+        where: {
+          startTime: { gte: now },
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+        include: {
+          user: { select: { id: true, name: true, phone: true, email: true } },
+          service: true,
+          staff: { select: { id: true, name: true } },
+          addons: { include: { addon: true } },
+        },
+        orderBy: { startTime: "asc" },
+        take: 10,
+      }),
+    ]);
 
-  let topServiceName = "—";
-  let topServiceCount = 0;
-  if (topServiceResult.length > 0) {
-    const svc = await prisma.service.findUnique({
-      where: { id: topServiceResult[0].serviceId },
-      select: { name: true },
-    });
-    if (svc) {
-      topServiceName = svc.name;
-      topServiceCount = topServiceResult[0]._count.id;
+    weeklyAppointments = weeklyCount;
+    monthlyRevenue = Number(monthlyRevenueResult._sum.totalPrice ?? 0);
+    upcomingAppointments = upcoming;
+
+    if (topServiceResult.length > 0) {
+      const svc = await prisma.service.findUnique({
+        where: { id: topServiceResult[0].serviceId },
+        select: { name: true },
+      });
+      if (svc) {
+        topServiceName = svc.name;
+        topServiceCount = topServiceResult[0]._count.id;
+      }
     }
-  }
 
-  let topAddonName = "—";
-  let topAddonCount = 0;
-  if (topAddonResult.length > 0) {
-    const adn = await prisma.addon.findUnique({
-      where: { id: topAddonResult[0].addonId },
-      select: { name: true },
-    });
-    if (adn) {
-      topAddonName = adn.name;
-      topAddonCount = topAddonResult[0]._count.id;
+    if (topAddonResult.length > 0) {
+      const adn = await prisma.addon.findUnique({
+        where: { id: topAddonResult[0].addonId },
+        select: { name: true },
+      });
+      if (adn) {
+        topAddonName = adn.name;
+        topAddonCount = topAddonResult[0]._count.id;
+      }
     }
+  } catch {
+    // Database not available — show empty state
   }
-
-  const monthlyRevenue = Number(monthlyRevenueResult._sum.totalPrice ?? 0);
 
   const metrics = [
     {
@@ -212,7 +223,7 @@ export default async function AdminDashboardPage() {
                   <p className="text-sm text-charcoal-700/60">
                     {appt.service.name}
                     {appt.addons.length > 0 &&
-                      ` + ${appt.addons.map((a) => a.addon.name).join(", ")}`}
+                      ` + ${appt.addons.map((a: { addon: { name: string } }) => a.addon.name).join(", ")}`}
                   </p>
                 </div>
                 <div className="text-right shrink-0 ml-4">

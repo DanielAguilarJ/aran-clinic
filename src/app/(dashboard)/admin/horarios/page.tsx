@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import { prisma } from "@/lib/prisma";
 import { HoursForm } from "@/components/dashboard/hours-form";
 import type { Metadata } from "next";
 
@@ -19,14 +18,20 @@ const DAY_NAMES = [
 ];
 
 export default async function HorariosPage() {
-  const [hours, settings] = await Promise.all([
-    prisma.businessHours.findMany({
-      orderBy: { dayOfWeek: "asc" },
-    }),
-    prisma.businessSettings.findFirst(),
-  ]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let hours: any[] = [];
+  let settings = null;
 
-  // Ensure all 7 days exist
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    [hours, settings] = await Promise.all([
+      prisma.businessHours.findMany({ orderBy: { dayOfWeek: "asc" } }),
+      prisma.businessSettings.findFirst(),
+    ]);
+  } catch {
+    // Database not available — use defaults
+  }
+
   const allDays = Array.from({ length: 7 }, (_, i) => {
     const existing = hours.find((h) => h.dayOfWeek === i);
     return {
@@ -34,7 +39,7 @@ export default async function HorariosPage() {
       dayName: DAY_NAMES[i],
       openTime: existing?.openTime ?? "09:00",
       closeTime: existing?.closeTime ?? "19:00",
-      isClosed: existing?.isClosed ?? (i === 0), // Sunday closed by default
+      isClosed: existing?.isClosed ?? (i === 0),
     };
   });
 
