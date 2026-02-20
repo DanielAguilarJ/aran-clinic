@@ -13,21 +13,29 @@ export const metadata: Metadata = {
 };
 
 export default async function ReservarPage() {
-  const [services, addons] = await Promise.all([
-    prisma.service.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
-      include: {
-        recommendedAddons: {
-          include: { addon: true },
-          orderBy: { priority: "desc" },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let services: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let addons: any[] = [];
+  try {
+    [services, addons] = await Promise.all([
+      prisma.service.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: "asc" },
+        include: {
+          recommendedAddons: {
+            include: { addon: true },
+            orderBy: { priority: "desc" },
+          },
         },
-      },
-    }),
-    prisma.addon.findMany({
-      where: { isActive: true },
-    }),
-  ]);
+      }),
+      prisma.addon.findMany({
+        where: { isActive: true },
+      }),
+    ]);
+  } catch {
+    // Database not available, render booking page with empty data
+  }
 
   return (
     <Suspense
