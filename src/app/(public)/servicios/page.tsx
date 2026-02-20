@@ -1,8 +1,5 @@
-export const dynamic = "force-dynamic";
-
 import type { Metadata } from "next";
-import type { Service } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { MOCK_SERVICES } from "@/lib/mock-data";
 import { ServiceCard } from "@/components/services/service-card";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { SERVICE_CATEGORY_LABELS } from "@/lib/constants";
@@ -14,19 +11,11 @@ export const metadata: Metadata = {
 };
 
 export default async function ServiciosPage() {
-  let services: Service[] = [];
-  try {
-    services = await prisma.service.findMany({
-      where: { isActive: true },
-      orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
-    });
-  } catch {
-    // Database not available, render page without services
-  }
+  const services = MOCK_SERVICES;
 
   const grouped = services.reduce(
     (acc, service) => {
-      const cat = service.category;
+      const cat = service.category as string;
       if (!acc[cat]) acc[cat] = [];
       acc[cat].push(service);
       return acc;

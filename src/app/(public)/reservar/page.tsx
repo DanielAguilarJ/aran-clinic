@@ -1,8 +1,6 @@
-export const dynamic = "force-dynamic";
-
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { prisma } from "@/lib/prisma";
+import { MOCK_SERVICES, MOCK_ADDONS } from "@/lib/mock-data";
 import { BookingWizard } from "@/components/booking/booking-wizard";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
@@ -13,29 +11,8 @@ export const metadata: Metadata = {
 };
 
 export default async function ReservarPage() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let services: any[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let addons: any[] = [];
-  try {
-    [services, addons] = await Promise.all([
-      prisma.service.findMany({
-        where: { isActive: true },
-        orderBy: { sortOrder: "asc" },
-        include: {
-          recommendedAddons: {
-            include: { addon: true },
-            orderBy: { priority: "desc" },
-          },
-        },
-      }),
-      prisma.addon.findMany({
-        where: { isActive: true },
-      }),
-    ]);
-  } catch {
-    // Database not available, render booking page with empty data
-  }
+  const services = MOCK_SERVICES;
+  const addons = MOCK_ADDONS;
 
   return (
     <Suspense

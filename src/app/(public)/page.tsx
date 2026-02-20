@@ -1,7 +1,4 @@
-export const dynamic = "force-dynamic";
-
-import type { Service } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { MOCK_SERVICES } from "@/lib/mock-data";
 import { HeroSection } from "@/components/home/hero-section";
 import { WhyAranSection } from "@/components/home/why-aran-section";
 import { ServicesPreview } from "@/components/home/services-preview";
@@ -10,16 +7,7 @@ import { CtaSection } from "@/components/home/cta-section";
 import { BUSINESS } from "@/lib/constants";
 
 export default async function HomePage() {
-  let services: Service[] = [];
-  try {
-    services = await prisma.service.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: "asc" },
-      take: 6,
-    });
-  } catch {
-    // Database not available, render page without services
-  }
+  const services = MOCK_SERVICES.slice(0, 6);
 
   const jsonLd = {
     "@context": "https://schema.org",
